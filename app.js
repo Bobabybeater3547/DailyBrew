@@ -589,8 +589,7 @@ async function generateMonthPosterSVG(monthAnchor){
     return `<text x="${x.toFixed(1)}" y="${(top-18).toFixed(1)}"
             text-anchor="middle" font-family="American Typewriter, Courier New, monospace"
             font-size="22" fill="#1E2630" opacity="0.55">${w}</text>`;
-  }).join("
-");
+  }).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -606,8 +605,7 @@ async function generateMonthPosterSVG(monthAnchor){
 
   ${weekday}
 
-  ${cells.join("
-")}
+  ${cells.join("\n")}
 
   <text x="${W/2}" y="${H-80}" text-anchor="middle"
         font-family="American Typewriter, Courier New, monospace"
