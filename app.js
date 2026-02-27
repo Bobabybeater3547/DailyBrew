@@ -16,6 +16,11 @@ const state = {
   draft: null                // editor draft
 };
 
+// Swipe month navigation (bind once to avoid duplicate listeners)
+let swipeBound = false;
+let swipeX0 = null;
+
+
 function loadData(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -140,15 +145,24 @@ function renderCalendar(){
 }
 
 function enableMonthSwipe(){
-  let x0 = null;
-  app.addEventListener("touchstart", (e)=>{ x0 = e.touches[0].clientX; }, {passive:true});
+  if (swipeBound) return;
+  swipeBound = true;
+
+  app.addEventListener("touchstart", (e)=>{
+    if(state.view !== "calendar") return;
+    swipeX0 = e.touches[0].clientX;
+  }, {passive:true});
+
   app.addEventListener("touchend", (e)=>{
-    if(x0 == null) return;
+    if(state.view !== "calendar") return;
+    if(swipeX0 == null) return;
     const x1 = e.changedTouches[0].clientX;
-    const dx = x1 - x0;
-    x0 = null;
+    const dx = x1 - swipeX0;
+    swipeX0 = null;
     if(Math.abs(dx) < 80) return;
-    state.monthAnchor = new Date(state.monthAnchor.getFullYear(), state.monthAnchor.getMonth() + (dx < 0 ? 1 : -1), 1);
+    // dx < 0 => swipe left => next month
+    const delta = (dx < 0) ? 1 : -1;
+    state.monthAnchor = new Date(state.monthAnchor.getFullYear(), state.monthAnchor.getMonth() + delta, 1);
     render();
   }, {passive:true});
 }
