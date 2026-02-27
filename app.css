@@ -314,3 +314,11 @@ hr.hair{
 }
 
 .hidden{display:none;}
+
+
+/* PNG icons */
+img{ -webkit-user-drag:none; user-select:none; }
+.iconSmall{ width:32px; height:32px; }
+.iconPick{ width:62px; height:62px; }
+.iconCard{ width:42px; height:42px; }
+.iconBig{ width:64px; height:64px; }

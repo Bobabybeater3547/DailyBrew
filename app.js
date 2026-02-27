@@ -77,9 +77,10 @@ function topbarHTML({left, right}){
   `;
 }
 
-function svgUse(iconId){
-  return `<svg viewBox="0 0 64 64" aria-hidden="true"><use href="#icon-${iconId}"></use></svg>`;
+function iconHTML(id, cls=""){
+  return `<img class="${cls}" src="./icons/${id}.png" alt="" />`;
 }
+
 
 function renderCalendar(){
   const {year, month} = monthTitle(state.monthAnchor);
@@ -108,7 +109,7 @@ function renderCalendar(){
           return `
             <button class="day ${isToday(d) ? "today":""}" data-date="${k}">
               <div class="num">${d.getDate()}</div>
-              <div class="cup">${entry ? svgUse(entry.icon) : ""}</div>
+              <div class="cup">${entry ? iconHTML(entry.icon,"iconSmall") : ""}</div>
             </button>
           `;
         }).join("")}
@@ -168,7 +169,7 @@ function renderBookmarks(){
         const d = dateFromKey(e.dateKey);
         return `
           <div class="card" data-date="${e.dateKey}">
-            ${svgUse(e.icon)}
+            ${iconHTML(e.icon,"iconCard")}
             <div class="meta">
               <div class="d">${shortDate(d)}</div>
               ${e.place ? `<div class="s">${escapeHTML(e.place)}</div>` : `<div class="s"> </div>`}
@@ -294,7 +295,7 @@ function openPicker(date, options = {}){
         <div class="pickGrid">
           ${ICONS.map(id=>`
             <button class="pickBtn" data-icon="${id}">
-              ${svgUse(id)}
+              ${iconHTML(id,"iconPick")}
             </button>
           `).join("")}
         </div>
@@ -349,7 +350,7 @@ function openEditor(date, icon, keepDraft){
       </div>
       <div class="sheetBody">
         <div style="display:flex; gap:14px; align-items:center;">
-          <div>${svgUse(icon)}</div>
+          <div>${iconHTML(icon,"iconBig")}</div>
           <div style="flex:1;">
             <div class="small">A small record is enough.</div>
             <div class="small" style="margin-top:4px; opacity:0.65;">(You can edit later.)</div>
@@ -510,17 +511,44 @@ function importJSONBackup(ev){
 }
 
 // ---------- Month poster (SVG) ----------
-function exportMonthPosterSVG(monthAnchor){
-  const svg = generateMonthPosterSVG(monthAnchor);
+
+// ---------- Month poster (SVG with embedded PNG icons) ----------
+const ICON_DATA_URL = {};
+async function getIconDataURL(id){
+  if(ICON_DATA_URL[id]) return ICON_DATA_URL[id];
+  const res = await fetch(`./icons/${id}.png`, {cache:"force-cache"});
+  const blob = await res.blob();
+  const dataUrl = await new Promise((resolve) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.readAsDataURL(blob);
+  });
+  ICON_DATA_URL[id] = dataUrl;
+  return dataUrl;
+}
+
+async function exportMonthPosterSVG(monthAnchor){
+  const svg = await generateMonthPosterSVG(monthAnchor);
   const {year, month} = monthTitle(monthAnchor);
   const name = `brewjournal-poster-${year}-${month.toLowerCase()}.svg`;
   const blob = new Blob([svg], {type:"image/svg+xml"});
   downloadBlob(blob, name);
 }
 
-function generateMonthPosterSVG(monthAnchor){
+async function generateMonthPosterSVG(monthAnchor){
   const grid = monthGrid(monthAnchor);
   const {year, month} = monthTitle(monthAnchor);
+
+  // Collect icons used this month
+  const used = new Set();
+  for(const d of grid){
+    if(!d) continue;
+    const e = data.entries[keyForDate(d)];
+    if(e && e.icon) used.add(e.icon);
+  }
+  const iconIds = [...used];
+  const iconMap = {};
+  await Promise.all(iconIds.map(async (id)=>{ iconMap[id] = await getIconDataURL(id); }));
 
   // Layout
   const W = 1080, H = 1350;
@@ -528,14 +556,6 @@ function generateMonthPosterSVG(monthAnchor){
   const cellW = (W - pad*2) / 7;
   const cellH = 120;
   const top = 260;
-
-  // Build defs: reuse the same symbols
-  const symbols = ICONS.map(id=>{
-    // We cannot "reference" the in-page sprite across files, so we inline minimal <use> to existing symbol would break.
-    // Instead: embed <symbol> by copying from DOM.
-    const sym = document.querySelector(`#icon-${id}`);
-    return sym ? sym.outerHTML : "";
-  }).join("\n");
 
   const cells = [];
   for(let i=0;i<grid.length;i++){
@@ -550,34 +570,31 @@ function generateMonthPosterSVG(monthAnchor){
     const cx = pad + col*cellW + cellW/2;
     const cy = top + row*cellH + 44;
 
-    const scale = 0.72; // since icons are 64x64
-    const x = cx - (64*scale)/2;
-    const y = cy - (64*scale)/2;
+    const size = 64 * 0.86; // rendered px in poster
+    const x = cx - size/2;
+    const y = cy - size/2;
 
+    const href = iconMap[e.icon] || `./icons/${e.icon}.png`;
     cells.push(`
-      <g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${scale})">
-        <use href="#icon-${e.icon}"></use>
-      </g>
+      <image href="${href}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${size.toFixed(1)}" height="${size.toFixed(1)}"
+             preserveAspectRatio="xMidYMid meet" />
       <text x="${cx.toFixed(1)}" y="${(top + row*cellH + 102).toFixed(1)}"
             text-anchor="middle" font-family="American Typewriter, Courier New, monospace"
             font-size="22" fill="#1E2630" opacity="0.55">${d.getDate()}</text>
     `);
   }
 
-  // Weekday header
   const weekday = ["Su","Mo","Tu","We","Th","Fr","Sa"].map((w, i)=> {
     const x = pad + i*cellW + cellW/2;
     return `<text x="${x.toFixed(1)}" y="${(top-18).toFixed(1)}"
             text-anchor="middle" font-family="American Typewriter, Courier New, monospace"
             font-size="22" fill="#1E2630" opacity="0.55">${w}</text>`;
-  }).join("\n");
+  }).join("
+");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <rect width="100%" height="100%" fill="#FBF6EE"/>
-  <defs>
-    ${symbols}
-  </defs>
 
   <text x="${W/2}" y="120" text-anchor="middle"
         font-family="American Typewriter, Courier New, monospace"
@@ -589,13 +606,15 @@ function generateMonthPosterSVG(monthAnchor){
 
   ${weekday}
 
-  ${cells.join("\n")}
+  ${cells.join("
+")}
 
   <text x="${W/2}" y="${H-80}" text-anchor="middle"
         font-family="American Typewriter, Courier New, monospace"
         font-size="18" fill="#1E2630" opacity="0.5">Brew Journal • a month, told in cups</text>
 </svg>`;
 }
+
 
 // ---------- Utilities ----------
 function downloadBlob(blob, filename){

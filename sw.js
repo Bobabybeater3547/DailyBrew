@@ -9,7 +9,19 @@ const ASSETS = [
   "./favicon.png",
   "./apple-touch-icon.png",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./icons/latteArt.png",
+  "./icons/icedLatte.png",
+  "./icons/cupcakeHeart.png",
+  "./icons/espresso.png",
+  "./icons/blackMug.png",
+  "./icons/icedCoffee.png",
+  "./icons/syrupBottle.png",
+  "./icons/strawDrink.png",
+  "./icons/cupcakeLeaf.png",
+  "./icons/matchaCup.png",
+  "./icons/dessertCup.png",
+  "./icons/pourOver.png",
 ];
 
 self.addEventListener("install", (event) => {
